@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alpha Agent — Stock Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #080c10; --surface: #0d1117; --border: #1e2630; --border2: #2a3540;
+  --text: #e8edf3; --muted: #64748b; --accent: #00ff88; --accent2: #00ccff;
+  --buy: #00c853; --hold: #f59e0b; --sell: #ef4444;
+  --mono: 'DM Mono', monospace; --sans: 'Inter', sans-serif; --display: 'Bebas Neue', sans-serif;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; padding: 2rem 1rem; }
+.wrap { max-width: 720px; margin: 0 auto; }
+header { text-align: center; margin-bottom: 2.5rem; }
+header .eyebrow { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.3em; color: var(--muted); text-transform: uppercase; margin-bottom: 0.5rem; }
+header h1 { font-family: var(--display); font-size: clamp(2.5rem, 8vw, 4rem); letter-spacing: 0.08em; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
+header .sub { font-size: 0.75rem; font-family: var(--mono); color: var(--muted); margin-top: 0.4rem; letter-spacing: 0.1em; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; }
+.search-row { display: flex; gap: 0.75rem; }
+.ticker-wrap { position: relative; flex: 1; }
+.ticker-prefix { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-weight: 500; color: var(--accent); font-size: 1rem; }
+#ticker-input { width: 100%; background: #060a0e; border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem 0.85rem 2rem; color: var(--accent); font-family: var(--mono); font-size: 1.1rem; font-weight: 500; letter-spacing: 0.15em; outline: none; transition: border-color 0.2s; }
+#ticker-input:focus { border-color: var(--accent); }
+#ticker-input::placeholder { color: #2a3540; }
+#analyze-btn { background: var(--accent); border: none; border-radius: 8px; padding: 0.85rem 1.5rem; color: #040806; font-family: var(--mono); font-size: 0.85rem; font-weight: 500; letter-spacing: 0.1em; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+#analyze-btn:hover { background: #00e57a; }
+#analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.quick-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; align-items: center; }
+.quick-label { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; }
+.quick-btn { background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 0.25rem 0.6rem; color: var(--muted); font-family: var(--mono); font-size: 0.7rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.quick-btn:hover { background: #00ff8820; border-color: #00ff8860; color: var(--accent); }
+#status-box { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+.status-inner { display: flex; align-items: center; gap: 0.75rem; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+#status-msg { font-family: var(--mono); font-size: 0.75rem; color: var(--accent); letter-spacing: 0.08em; }
+.result-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; animation: slideUp 0.3s ease; }
+@keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+.result-header { padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+.ticker-label { font-family: var(--display); font-size: 1.8rem; letter-spacing: 0.05em; color: var(--text); }
+.rec-badge { padding: 4px 14px; border-radius: 20px; font-family: var(--mono); font-size: 0.75rem; font-weight: 500; letter-spacing: 1px; }
+.rec-BUY { background: #00c85320; color: var(--buy); border: 1px solid #00c85340; }
+.rec-HOLD { background: #f59e0b20; color: var(--hold); border: 1px solid #f59e0b40; }
+.rec-SELL { background: #ef444420; color: var(--sell); border: 1px solid #ef444440; }
+.price-group { margin-left: auto; text-align: right; }
+.price-main { font-size: 1.5rem; font-weight: 500; font-family: var(--mono); }
+.price-chg { font-size: 0.8rem; font-family: var(--mono); font-weight: 500; }
+.up { color: var(--buy); } .dn { color: var(--sell); }
+.metrics-bar { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+.metric-item { flex: 1; min-width: 100px; padding: 0.75rem 1.25rem; border-right: 1px solid var(--border); }
+.metric-item:last-child { border-right: none; }
+.metric-label { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 3px; }
+.metric-val { font-family: var(--mono); font-size: 0.9rem; font-weight: 500; color: var(--text); }
+.result-body { padding: 1.25rem 1.5rem; }
+.catalyst-box { background: #f59e0b10; border-left: 3px solid var(--hold); border-radius: 0 8px 8px 0; padding: 0.75rem 1rem; font-size: 0.8rem; color: #fbbf24; line-height: 1.5; margin-bottom: 1rem; }
+.catalyst-label { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.1em; color: var(--hold); margin-bottom: 4px; }
+.bull-bear { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+.bull-box { background: #00c85310; border-radius: 8px; padding: 0.85rem 1rem; }
+.bear-box { background: #ef444410; border-radius: 8px; padding: 0.85rem 1rem; }
+.bb-label { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.08em; margin-bottom: 5px; }
+.bull-box .bb-label { color: var(--buy); } .bear-box .bb-label { color: var(--sell); }
+.bb-text { font-size: 0.8rem; line-height: 1.5; color: #c8d0dc; }
+.entry-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
+.entry-item { background: #0a0f14; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
+.entry-label { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+.entry-val { font-family: var(--mono); font-size: 0.85rem; font-weight: 500; color: var(--text); }
+.summary-box { border-left: 3px solid var(--border2); padding: 0.75rem 1rem; font-size: 0.82rem; color: var(--muted); line-height: 1.7; }
+footer { text-align: center; margin-top: 2rem; font-family: var(--mono); font-size: 0.6rem; color: #1e2630; letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Alpha Agent</div>
+    <h1>STOCK ANALYZER</h1>
+    <div class="sub">Live data · AI analysis · Not financial advice</div>
+  </header>
+
+  <div class="card">
+    <div class="search-row">
+      <div class="ticker-wrap">
+        <span class="ticker-prefix">$</span>
+        <input id="ticker-input" type="text" placeholder="TICKER" maxlength="5" autocomplete="off" spellcheck="false" />
+      </div>
+      <button id="analyze-btn" onclick="runAnalysis()">ANALYZE ›</button>
+    </div>
+    <div class="quick-row">
+      <span class="quick-label">QUICK:</span>
+      <button class="quick-btn" onclick="quick('NVDA')">NVDA</button>
+      <button class="quick-btn" onclick="quick('AAPL')">AAPL</button>
+      <button class="quick-btn" onclick="quick('MSFT')">MSFT</button>
+      <button class="quick-btn" onclick="quick('TSLA')">TSLA</button>
+      <button class="quick-btn" onclick="quick('META')">META</button>
+      <button class="quick-btn" onclick="quick('AMD')">AMD</button>
+      <button class="quick-btn" onclick="quick('MRVL')">MRVL</button>
+      <button class="quick-btn" onclick="quick('AVGO')">AVGO</button>
+    </div>
+  </div>
+
+  <div id="status-box">
+    <div class="status-inner">
+      <div class="dot"></div>
+      <span id="status-msg">Loading...</span>
+    </div>
+  </div>
+
+  <div id="result-box"></div>
+
+  <footer>ALPHA AGENT · CLAUDE SONNET + ALPACA MARKETS · FOR EDUCATIONAL USE ONLY</footer>
+</div>
+
+<script>
+document.getElementById('ticker-input').addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
+
+function quick(t) { document.getElementById('ticker-input').value = t; runAnalysis(); }
+
+function setStatus(msg) {
+  document.getElementById('status-box').style.display = msg ? 'block' : 'none';
+  document.getElementById('status-msg').textContent = msg;
+}
+
+function fld(text, name) {
+  const m = text.match(new RegExp('^' + name + '\\s*:\\s*(.+)$', 'im'));
+  return m ? m[1].trim().replace(/\*\*/g, '') : '—';
+}
+
+function recLabel(text) {
+  const m = text.match(/^RECOMMENDATION\s*:\s*(BUY|HOLD|SELL)/im);
+  return m ? m[1].toUpperCase() : 'HOLD';
+}
+
+async function runAnalysis() {
+  const ticker = (document.getElementById('ticker-input').value || '').trim().toUpperCase();
+  if (!ticker) return;
+
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true; btn.textContent = 'ANALYZING...';
+  document.getElementById('result-box').style.display = 'none';
+  setStatus('Analyzing ' + ticker + '...');
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker })
+    });
+    const data = await res.json();
+
+    if (data.error) { setStatus('Error: ' + data.error); btn.disabled = false; btn.textContent = 'ANALYZE ›'; return; }
+
+    setStatus('');
+    btn.disabled = false; btn.textContent = 'ANALYZE ›';
+
+    const { price, chg, high, low, vwap, volume, prevClose, analysis } = data;
+    const rec = recLabel(analysis);
+    const pctStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+    const catalyst = fld(analysis, 'Catalyst');
+
+    document.getElementById('result-box').style.display = 'block';
+    document.getElementById('result-box').innerHTML = `
+      <div class="result-card">
+        <div class="result-header">
+          <span class="ticker-label">${ticker}</span>
+          <span class="rec-badge rec-${rec}">${rec}</span>
+          <div class="price-group">
+            <div class="price-main">$${price.toFixed(2)}</div>
+            <div class="price-chg ${chg >= 0 ? 'up' : 'dn'}">${pctStr} today</div>
+          </div>
+        </div>
+        <div class="metrics-bar">
+          <div class="metric-item"><div class="metric-label">High</div><div class="metric-val">$${high.toFixed(2)}</div></div>
+          <div class="metric-item"><div class="metric-label">Low</div><div class="metric-val">$${low.toFixed(2)}</div></div>
+          <div class="metric-item"><div class="metric-label">VWAP</div><div class="metric-val">$${vwap.toFixed(2)}</div></div>
+          <div class="metric-item"><div class="metric-label">Volume</div><div class="metric-val">${(volume/1e6).toFixed(1)}M</div></div>
+          <div class="metric-item"><div class="metric-label">Prev Close</div><div class="metric-val">$${prevClose.toFixed(2)}</div></div>
+        </div>
+        <div class="result-body">
+          ${catalyst !== '—' && catalyst !== 'No clear catalyst' ? `<div class="catalyst-box"><div class="catalyst-label">⚡ CATALYST</div>${catalyst}</div>` : ''}
+          <div class="bull-bear">
+            <div class="bull-box"><div class="bb-label">▲ BULL CASE</div><div class="bb-text">${fld(analysis,'Bull')}</div></div>
+            <div class="bear-box"><div class="bb-label">▼ BEAR CASE</div><div class="bb-text">${fld(analysis,'Bear')}</div></div>
+          </div>
+          <div class="entry-row">
+            <div class="entry-item"><div class="entry-label">Confidence</div><div class="entry-val">${fld(analysis,'Confidence')}</div></div>
+            <div class="entry-item"><div class="entry-label">12M Target</div><div class="entry-val">${fld(analysis,'Target')}</div></div>
+            <div class="entry-item"><div class="entry-label">Entry</div><div class="entry-val" style="font-size:0.75rem;">${fld(analysis,'Entry')}</div></div>
+          </div>
+          <div class="summary-box">${fld(analysis,'Summary')}</div>
+        </div>
+      </div>`;
+
+  } catch(e) {
+    setStatus('Error: ' + e.message);
+    btn.disabled = false; btn.textContent = 'ANALYZE ›';
+  }
+}
+</script>
+</body>
+</html>
