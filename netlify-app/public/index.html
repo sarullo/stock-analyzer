@@ -20,15 +20,25 @@ header .eyebrow { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 
 header h1 { font-family: var(--display); font-size: clamp(2.5rem, 8vw, 4rem); letter-spacing: 0.08em; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
 header .sub { font-size: 0.75rem; font-family: var(--mono); color: var(--muted); margin-top: 0.4rem; letter-spacing: 0.1em; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; }
-.search-row { display: flex; gap: 0.75rem; }
+.search-row { display: flex; gap: 0.75rem; position: relative; }
 .ticker-wrap { position: relative; flex: 1; }
-.ticker-prefix { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-weight: 500; color: var(--accent); font-size: 1rem; }
-#ticker-input { width: 100%; background: #060a0e; border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem 0.85rem 2rem; color: var(--accent); font-family: var(--mono); font-size: 1.1rem; font-weight: 500; letter-spacing: 0.15em; outline: none; transition: border-color 0.2s; }
+.ticker-prefix { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-weight: 500; color: var(--accent); font-size: 1rem; z-index: 1; }
+#ticker-input { width: 100%; background: #060a0e; border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem 0.85rem 2rem; color: var(--accent); font-family: var(--mono); font-size: 1.1rem; font-weight: 500; letter-spacing: 0.1em; outline: none; transition: border-color 0.2s; }
 #ticker-input:focus { border-color: var(--accent); }
-#ticker-input::placeholder { color: #2a3540; }
+#ticker-input::placeholder { color: #2a3540; letter-spacing: 0.05em; font-size: 0.9rem; }
 #analyze-btn { background: var(--accent); border: none; border-radius: 8px; padding: 0.85rem 1.5rem; color: #040806; font-family: var(--mono); font-size: 0.85rem; font-weight: 500; letter-spacing: 0.1em; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
 #analyze-btn:hover { background: #00e57a; }
 #analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Autocomplete dropdown */
+#autocomplete { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #0d1117; border: 1px solid var(--accent); border-radius: 8px; z-index: 100; max-height: 280px; overflow-y: auto; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.ac-item { padding: 0.65rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); transition: background 0.1s; }
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.active { background: #00ff8815; }
+.ac-ticker { font-family: var(--mono); font-size: 0.85rem; font-weight: 500; color: var(--accent); min-width: 55px; }
+.ac-name { font-size: 0.8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-sector { font-size: 0.7rem; color: #334155; margin-left: auto; white-space: nowrap; }
+
 .quick-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; align-items: center; }
 .quick-label { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; }
 .quick-btn { background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 0.25rem 0.6rem; color: var(--muted); font-family: var(--mono); font-size: 0.7rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
@@ -42,6 +52,7 @@ header .sub { font-size: 0.75rem; font-family: var(--mono); color: var(--muted);
 @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 .result-header { padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
 .ticker-label { font-family: var(--display); font-size: 1.8rem; letter-spacing: 0.05em; color: var(--text); }
+.company-name { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
 .rec-badge { padding: 4px 14px; border-radius: 20px; font-family: var(--mono); font-size: 0.75rem; font-weight: 500; letter-spacing: 1px; }
 .rec-BUY { background: #00c85320; color: var(--buy); border: 1px solid #00c85340; }
 .rec-HOLD { background: #f59e0b20; color: var(--hold); border: 1px solid #f59e0b40; }
@@ -84,7 +95,8 @@ footer { text-align: center; margin-top: 2rem; font-family: var(--mono); font-si
     <div class="search-row">
       <div class="ticker-wrap">
         <span class="ticker-prefix">$</span>
-        <input id="ticker-input" type="text" placeholder="TICKER" maxlength="5" autocomplete="off" spellcheck="false" />
+        <input id="ticker-input" type="text" placeholder="Type ticker or company name..." autocomplete="off" spellcheck="false" />
+        <div id="autocomplete"></div>
       </div>
       <button id="analyze-btn" onclick="runAnalysis()">ANALYZE ›</button>
     </div>
@@ -109,15 +121,131 @@ footer { text-align: center; margin-top: 2rem; font-family: var(--mono); font-si
   </div>
 
   <div id="result-box"></div>
-
   <footer>ALPHA AGENT · CLAUDE SONNET + ALPACA MARKETS · FOR EDUCATIONAL USE ONLY</footer>
 </div>
 
 <script>
-document.getElementById('ticker-input').addEventListener('keydown', e => { if (e.key === 'Enter') runAnalysis(); });
+// ─── Stock database for autocomplete ─────────────────────────────────────────
+const STOCKS = [
+  ['AAPL','Apple Inc.','Tech'],['MSFT','Microsoft','Tech'],['NVDA','NVIDIA','Tech'],
+  ['GOOGL','Alphabet (Google)','Tech'],['META','Meta Platforms','Tech'],['AMZN','Amazon','Consumer'],
+  ['TSLA','Tesla','Auto/EV'],['AMD','Advanced Micro Devices','Tech'],['AVGO','Broadcom','Tech'],
+  ['MRVL','Marvell Technology','Tech'],['QCOM','Qualcomm','Tech'],['INTC','Intel','Tech'],
+  ['MU','Micron Technology','Tech'],['ADBE','Adobe','Tech'],['CRM','Salesforce','Tech'],
+  ['ORCL','Oracle','Tech'],['NOW','ServiceNow','Tech'],['PLTR','Palantir','Tech'],
+  ['SMCI','Super Micro Computer','Tech'],['ARM','Arm Holdings','Tech'],
+  ['JPM','JPMorgan Chase','Finance'],['GS','Goldman Sachs','Finance'],
+  ['BAC','Bank of America','Finance'],['MS','Morgan Stanley','Finance'],
+  ['V','Visa','Finance'],['MA','Mastercard','Finance'],['PYPL','PayPal','Finance'],
+  ['HOOD','Robinhood','Finance'],['COIN','Coinbase','Finance'],['SOFI','SoFi Technologies','Finance'],
+  ['LLY','Eli Lilly','Healthcare'],['UNH','UnitedHealth Group','Healthcare'],
+  ['JNJ','Johnson & Johnson','Healthcare'],['ABBV','AbbVie','Healthcare'],
+  ['PFE','Pfizer','Healthcare'],['MRNA','Moderna','Healthcare'],['GILD','Gilead Sciences','Healthcare'],
+  ['AMGN','Amgen','Healthcare'],['XOM','ExxonMobil','Energy'],['CVX','Chevron','Energy'],
+  ['COP','ConocoPhillips','Energy'],['SLB','SLB (Schlumberger)','Energy'],
+  ['OXY','Occidental Petroleum','Energy'],['NFLX','Netflix','Media'],
+  ['SBUX','Starbucks','Consumer'],['NKE','Nike','Consumer'],['TGT','Target','Retail'],
+  ['WMT','Walmart','Retail'],['HD','Home Depot','Retail'],['COST','Costco','Retail'],
+  ['CAT','Caterpillar','Industrial'],['HON','Honeywell','Industrial'],
+  ['BA','Boeing','Industrial'],['GE','GE Aerospace','Industrial'],
+  ['F','Ford Motor','Auto'],['GM','General Motors','Auto'],
+  ['UBER','Uber Technologies','Tech'],['LYFT','Lyft','Tech'],['ABNB','Airbnb','Travel'],
+  ['SNAP','Snap Inc.','Tech'],['SPOT','Spotify','Media'],['RBLX','Roblox','Gaming'],
+  ['RIVN','Rivian','Auto/EV'],['LCID','Lucid Group','Auto/EV'],
+  ['SHOP','Shopify','Tech'],['SQ','Block (Square)','Finance'],['TWLO','Twilio','Tech'],
+  ['ZM','Zoom Video','Tech'],['DDOG','Datadog','Tech'],['SNOW','Snowflake','Tech'],
+  ['NET','Cloudflare','Tech'],['CRWD','CrowdStrike','Tech'],['PANW','Palo Alto Networks','Tech'],
+  ['S','SentinelOne','Tech'],['OKTA','Okta','Tech'],['MDB','MongoDB','Tech'],
+  ['GTLB','GitLab','Tech'],['U','Unity Software','Tech'],['RDFN','Redfin','Real Estate'],
+  ['Z','Zillow Group','Real Estate'],['OPEN','Opendoor','Real Estate'],
+  ['BBAI','BigBear.ai','Tech'],['RGTI','Rigetti Computing','Tech'],['QBTS','D-Wave Quantum','Tech'],
+  ['IREN','Iris Energy','Tech'],['MSTR','MicroStrategy','Finance'],['RIOT','Riot Platforms','Tech'],
+  ['MARA','Marathon Digital','Tech'],['CLSK','CleanSpark','Tech'],
+  ['TSM','Taiwan Semiconductor','Tech'],['ASML','ASML Holding','Tech'],
+  ['SAP','SAP SE','Tech'],['BABA','Alibaba','Tech'],['JD','JD.com','Consumer'],
+  ['PDD','PDD Holdings','Consumer'],['BIDU','Baidu','Tech'],
+  ['SPY','S&P 500 ETF','ETF'],['QQQ','Nasdaq 100 ETF','ETF'],['IWM','Russell 2000 ETF','ETF'],
+  ['GLD','Gold ETF','ETF'],['SLV','Silver ETF','ETF'],['USO','Oil ETF','ETF'],
+];
 
-function quick(t) { document.getElementById('ticker-input').value = t; runAnalysis(); }
+// ─── Autocomplete logic ───────────────────────────────────────────────────────
+var selectedTicker = '';
+var activeIdx = -1;
+var filtered = [];
 
+function showAutocomplete(query) {
+  const q = query.toUpperCase();
+  const ac = document.getElementById('autocomplete');
+  if (!q || q.length < 1) { ac.style.display = 'none'; return; }
+
+  filtered = STOCKS.filter(s =>
+    s[0].startsWith(q) ||
+    s[1].toUpperCase().includes(q) ||
+    s[0].includes(q)
+  ).slice(0, 8);
+
+  if (!filtered.length) { ac.style.display = 'none'; return; }
+
+  ac.innerHTML = filtered.map((s, i) =>
+    `<div class="ac-item" data-idx="${i}" onmousedown="selectStock(${i})">
+      <span class="ac-ticker">${s[0]}</span>
+      <span class="ac-name">${s[1]}</span>
+      <span class="ac-sector">${s[2]}</span>
+    </div>`
+  ).join('');
+  ac.style.display = 'block';
+  activeIdx = -1;
+}
+
+function selectStock(idx) {
+  const s = filtered[idx];
+  selectedTicker = s[0];
+  document.getElementById('ticker-input').value = s[0];
+  document.getElementById('autocomplete').style.display = 'none';
+  runAnalysis();
+}
+
+function hideAutocomplete() {
+  setTimeout(() => { document.getElementById('autocomplete').style.display = 'none'; }, 150);
+}
+
+const input = document.getElementById('ticker-input');
+input.addEventListener('input', e => {
+  selectedTicker = '';
+  showAutocomplete(e.target.value);
+});
+input.addEventListener('blur', hideAutocomplete);
+input.addEventListener('keydown', e => {
+  const ac = document.getElementById('autocomplete');
+  const items = ac.querySelectorAll('.ac-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeIdx = Math.min(activeIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeIdx = Math.max(activeIdx - 1, -1);
+    items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+  } else if (e.key === 'Enter') {
+    if (activeIdx >= 0 && filtered[activeIdx]) {
+      selectStock(activeIdx);
+    } else {
+      ac.style.display = 'none';
+      runAnalysis();
+    }
+  } else if (e.key === 'Escape') {
+    ac.style.display = 'none';
+  }
+});
+
+// ─── Quick buttons ────────────────────────────────────────────────────────────
+function quick(t) {
+  document.getElementById('ticker-input').value = t;
+  document.getElementById('autocomplete').style.display = 'none';
+  runAnalysis();
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function setStatus(msg) {
   document.getElementById('status-box').style.display = msg ? 'block' : 'none';
   document.getElementById('status-msg').textContent = msg;
@@ -133,6 +261,7 @@ function recLabel(text) {
   return m ? m[1].toUpperCase() : 'HOLD';
 }
 
+// ─── Main analysis ────────────────────────────────────────────────────────────
 async function runAnalysis() {
   const ticker = (document.getElementById('ticker-input').value || '').trim().toUpperCase();
   if (!ticker) return;
@@ -140,6 +269,7 @@ async function runAnalysis() {
   const btn = document.getElementById('analyze-btn');
   btn.disabled = true; btn.textContent = 'ANALYZING...';
   document.getElementById('result-box').style.display = 'none';
+  document.getElementById('autocomplete').style.display = 'none';
   setStatus('Analyzing ' + ticker + '...');
 
   try {
@@ -150,7 +280,11 @@ async function runAnalysis() {
     });
     const data = await res.json();
 
-    if (data.error) { setStatus('Error: ' + data.error); btn.disabled = false; btn.textContent = 'ANALYZE ›'; return; }
+    if (data.error) {
+      setStatus('Error: ' + data.error);
+      btn.disabled = false; btn.textContent = 'ANALYZE ›';
+      return;
+    }
 
     setStatus('');
     btn.disabled = false; btn.textContent = 'ANALYZE ›';
@@ -160,11 +294,18 @@ async function runAnalysis() {
     const pctStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
     const catalyst = fld(analysis, 'Catalyst');
 
+    // Find company name from our list
+    const stockInfo = STOCKS.find(s => s[0] === ticker);
+    const companyName = stockInfo ? stockInfo[1] : '';
+
     document.getElementById('result-box').style.display = 'block';
     document.getElementById('result-box').innerHTML = `
       <div class="result-card">
         <div class="result-header">
-          <span class="ticker-label">${ticker}</span>
+          <div>
+            <span class="ticker-label">${ticker}</span>
+            ${companyName ? `<div class="company-name">${companyName}</div>` : ''}
+          </div>
           <span class="rec-badge rec-${rec}">${rec}</span>
           <div class="price-group">
             <div class="price-main">$${price.toFixed(2)}</div>
@@ -179,7 +320,11 @@ async function runAnalysis() {
           <div class="metric-item"><div class="metric-label">Prev Close</div><div class="metric-val">$${prevClose.toFixed(2)}</div></div>
         </div>
         <div class="result-body">
-          ${catalyst !== '—' && catalyst !== 'No clear catalyst' ? `<div class="catalyst-box"><div class="catalyst-label">⚡ CATALYST</div>${catalyst}</div>` : ''}
+          ${catalyst !== '—' && catalyst !== 'No clear catalyst' ? `
+          <div class="catalyst-box">
+            <div class="catalyst-label">⚡ CATALYST</div>
+            ${catalyst}
+          </div>` : ''}
           <div class="bull-bear">
             <div class="bull-box"><div class="bb-label">▲ BULL CASE</div><div class="bb-text">${fld(analysis,'Bull')}</div></div>
             <div class="bear-box"><div class="bb-label">▼ BEAR CASE</div><div class="bb-text">${fld(analysis,'Bear')}</div></div>
