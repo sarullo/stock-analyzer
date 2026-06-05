@@ -29,16 +29,13 @@ header .sub { font-size: 0.75rem; font-family: var(--mono); color: var(--muted);
 #analyze-btn { background: var(--accent); border: none; border-radius: 8px; padding: 0.85rem 1.5rem; color: #040806; font-family: var(--mono); font-size: 0.85rem; font-weight: 500; letter-spacing: 0.1em; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
 #analyze-btn:hover { background: #00e57a; }
 #analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* Autocomplete dropdown */
 #autocomplete { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #0d1117; border: 1px solid var(--accent); border-radius: 8px; z-index: 100; max-height: 280px; overflow-y: auto; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
 .ac-item { padding: 0.65rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); transition: background 0.1s; }
 .ac-item:last-child { border-bottom: none; }
 .ac-item:hover, .ac-item.active { background: #00ff8815; }
-.ac-ticker { font-family: var(--mono); font-size: 0.85rem; font-weight: 500; color: var(--accent); min-width: 55px; }
+.ac-ticker { font-family: var(--mono); font-size: 0.85rem; font-weight: 500; color: var(--accent); min-width: 60px; }
 .ac-name { font-size: 0.8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ac-sector { font-size: 0.7rem; color: #334155; margin-left: auto; white-space: nowrap; }
-
+.ac-sector { font-size: 0.7rem; color: #334155; margin-left: auto; white-space: nowrap; padding-left: 8px; }
 .quick-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; align-items: center; }
 .quick-label { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; }
 .quick-btn { background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 0.25rem 0.6rem; color: var(--muted); font-family: var(--mono); font-size: 0.7rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
@@ -125,64 +122,231 @@ footer { text-align: center; margin-top: 2rem; font-family: var(--mono); font-si
 </div>
 
 <script>
-// ─── Stock database for autocomplete ─────────────────────────────────────────
 const STOCKS = [
-  ['AAPL','Apple Inc.','Tech'],['MSFT','Microsoft','Tech'],['NVDA','NVIDIA','Tech'],
-  ['GOOGL','Alphabet (Google)','Tech'],['META','Meta Platforms','Tech'],['AMZN','Amazon','Consumer'],
-  ['TSLA','Tesla','Auto/EV'],['AMD','Advanced Micro Devices','Tech'],['AVGO','Broadcom','Tech'],
-  ['MRVL','Marvell Technology','Tech'],['QCOM','Qualcomm','Tech'],['INTC','Intel','Tech'],
-  ['MU','Micron Technology','Tech'],['ADBE','Adobe','Tech'],['CRM','Salesforce','Tech'],
-  ['ORCL','Oracle','Tech'],['NOW','ServiceNow','Tech'],['PLTR','Palantir','Tech'],
-  ['SMCI','Super Micro Computer','Tech'],['ARM','Arm Holdings','Tech'],
+  // Mega-cap Tech
+  ['AAPL','Apple','Tech'],['MSFT','Microsoft','Tech'],['NVDA','NVIDIA','Tech'],
+  ['GOOGL','Alphabet (Google)','Tech'],['GOOG','Alphabet Class C','Tech'],
+  ['META','Meta Platforms','Tech'],['AMZN','Amazon','Consumer'],
+  ['TSLA','Tesla','Auto/EV'],['AMD','Advanced Micro Devices','Tech'],
+  ['AVGO','Broadcom','Tech'],['MRVL','Marvell Technology','Tech'],
+  ['QCOM','Qualcomm','Tech'],['INTC','Intel','Tech'],['MU','Micron Technology','Tech'],
+  ['ADBE','Adobe','Tech'],['CRM','Salesforce','Tech'],['ORCL','Oracle','Tech'],
+  ['NOW','ServiceNow','Tech'],['PLTR','Palantir','Tech'],['SMCI','Super Micro Computer','Tech'],
+  ['ARM','Arm Holdings','Tech'],['TSM','Taiwan Semiconductor','Tech'],
+  ['ASML','ASML Holding','Tech'],['AMAT','Applied Materials','Tech'],
+  ['LRCX','Lam Research','Tech'],['KLAC','KLA Corporation','Tech'],
+  ['MCHP','Microchip Technology','Tech'],['ADI','Analog Devices','Tech'],
+  ['TXN','Texas Instruments','Tech'],['NXPI','NXP Semiconductors','Tech'],
+  ['ON','ON Semiconductor','Tech'],['STM','STMicroelectronics','Tech'],
+  ['MPWR','Monolithic Power Systems','Tech'],['SWKS','Skyworks Solutions','Tech'],
+  ['QRVO','Qorvo','Tech'],['KEYS','Keysight Technologies','Tech'],
+  ['ANSS','Ansys','Tech'],['CDNS','Cadence Design Systems','Tech'],
+  ['SNPS','Synopsys','Tech'],['PTC','PTC Inc','Tech'],
+  ['FTNT','Fortinet','Tech'],['PANW','Palo Alto Networks','Tech'],
+  ['CRWD','CrowdStrike','Tech'],['S','SentinelOne','Tech'],
+  ['OKTA','Okta','Tech'],['ZS','Zscaler','Tech'],['CYBR','CyberArk','Tech'],
+  ['NET','Cloudflare','Tech'],['DDOG','Datadog','Tech'],['SNOW','Snowflake','Tech'],
+  ['MDB','MongoDB','Tech'],['ESTC','Elastic','Tech'],['GTLB','GitLab','Tech'],
+  ['HCP','HashiCorp','Tech'],['CFLT','Confluent','Tech'],['RPD','Rapid7','Tech'],
+  ['TENB','Tenable','Tech'],['QLYS','Qualys','Tech'],
+  ['SHOP','Shopify','Tech'],['TWLO','Twilio','Tech'],['SEND','SendGrid','Tech'],
+  ['ZM','Zoom Video','Tech'],['DOCU','DocuSign','Tech'],['BOX','Box','Tech'],
+  ['DROPBOX','Dropbox','Tech'],['DBX','Dropbox','Tech'],
+  ['WDAY','Workday','Tech'],['INTU','Intuit','Tech'],['ADSK','Autodesk','Tech'],
+  ['ANGI','Angi Inc','Tech'],['IAC','IAC','Tech'],
+  ['U','Unity Software','Gaming'],['RBLX','Roblox','Gaming'],
+  ['EA','Electronic Arts','Gaming'],['TTWO','Take-Two Interactive','Gaming'],
+  ['ATVI','Activision Blizzard','Gaming'],['NTDOY','Nintendo','Gaming'],
+  ['MSFT','Microsoft','Tech'],['UBER','Uber Technologies','Tech'],
+  ['LYFT','Lyft','Tech'],['DASH','DoorDash','Tech'],
+  ['ABNB','Airbnb','Travel'],['BKNG','Booking Holdings','Travel'],
+  ['EXPE','Expedia','Travel'],['TRIP','TripAdvisor','Travel'],
+  ['MAR','Marriott International','Travel'],['HLT','Hilton','Travel'],
+  ['H','Hyatt Hotels','Travel'],['IHG','InterContinental Hotels','Travel'],
+  ['LUV','Southwest Airlines','Airlines'],['DAL','Delta Air Lines','Airlines'],
+  ['UAL','United Airlines','Airlines'],['AAL','American Airlines','Airlines'],
+  ['ALK','Alaska Air Group','Airlines'],['JBLU','JetBlue','Airlines'],
+  ['SAVE','Spirit Airlines','Airlines'],['HA','Hawaiian Airlines','Airlines'],
+  // Finance
   ['JPM','JPMorgan Chase','Finance'],['GS','Goldman Sachs','Finance'],
   ['BAC','Bank of America','Finance'],['MS','Morgan Stanley','Finance'],
-  ['V','Visa','Finance'],['MA','Mastercard','Finance'],['PYPL','PayPal','Finance'],
-  ['HOOD','Robinhood','Finance'],['COIN','Coinbase','Finance'],['SOFI','SoFi Technologies','Finance'],
+  ['WFC','Wells Fargo','Finance'],['C','Citigroup','Finance'],
+  ['USB','U.S. Bancorp','Finance'],['PNC','PNC Financial','Finance'],
+  ['TFC','Truist Financial','Finance'],['COF','Capital One','Finance'],
+  ['AXP','American Express','Finance'],['V','Visa','Finance'],
+  ['MA','Mastercard','Finance'],['PYPL','PayPal','Finance'],
+  ['SQ','Block (Square)','Finance'],['HOOD','Robinhood','Finance'],
+  ['COIN','Coinbase','Finance'],['SOFI','SoFi Technologies','Finance'],
+  ['AFRM','Affirm','Finance'],['UPST','Upstart','Finance'],
+  ['LC','LendingClub','Finance'],['OPFI','OppFi','Finance'],
+  ['MSTR','MicroStrategy','Finance'],['RIOT','Riot Platforms','Crypto'],
+  ['MARA','Marathon Digital','Crypto'],['CLSK','CleanSpark','Crypto'],
+  ['HUT','Hut 8','Crypto'],['BTBT','Bit Digital','Crypto'],
+  ['BLK','BlackRock','Finance'],['SCHW','Charles Schwab','Finance'],
+  ['IBKR','Interactive Brokers','Finance'],['AMTD','AMTD Digital','Finance'],
+  ['ICE','Intercontinental Exchange','Finance'],['CME','CME Group','Finance'],
+  ['CBOE','Cboe Global Markets','Finance'],['NDAQ','Nasdaq Inc','Finance'],
+  ['SPGI','S&P Global','Finance'],['MCO','Moody\'s','Finance'],
+  ['FDS','FactSet Research','Finance'],['MSCI','MSCI Inc','Finance'],
+  ['AFL','Aflac','Insurance'],['MET','MetLife','Insurance'],
+  ['PRU','Prudential Financial','Insurance'],['AIG','AIG','Insurance'],
+  ['TRV','Travelers','Insurance'],['ALL','Allstate','Insurance'],
+  ['PGR','Progressive','Insurance'],['CB','Chubb','Insurance'],
+  ['MMC','Marsh & McLennan','Insurance'],['AON','Aon','Insurance'],
+  // Healthcare
   ['LLY','Eli Lilly','Healthcare'],['UNH','UnitedHealth Group','Healthcare'],
   ['JNJ','Johnson & Johnson','Healthcare'],['ABBV','AbbVie','Healthcare'],
-  ['PFE','Pfizer','Healthcare'],['MRNA','Moderna','Healthcare'],['GILD','Gilead Sciences','Healthcare'],
-  ['AMGN','Amgen','Healthcare'],['XOM','ExxonMobil','Energy'],['CVX','Chevron','Energy'],
+  ['PFE','Pfizer','Healthcare'],['MRNA','Moderna','Healthcare'],
+  ['GILD','Gilead Sciences','Healthcare'],['AMGN','Amgen','Healthcare'],
+  ['BMY','Bristol-Myers Squibb','Healthcare'],['MRK','Merck','Healthcare'],
+  ['AZN','AstraZeneca','Healthcare'],['GSK','GSK','Healthcare'],
+  ['NVO','Novo Nordisk','Healthcare'],['SNY','Sanofi','Healthcare'],
+  ['RHHBY','Roche','Healthcare'],['NVS','Novartis','Healthcare'],
+  ['BIIB','Biogen','Healthcare'],['REGN','Regeneron','Healthcare'],
+  ['VRTX','Vertex Pharmaceuticals','Healthcare'],['INCY','Incyte','Healthcare'],
+  ['ALNY','Alnylam Pharmaceuticals','Healthcare'],['SGEN','Seagen','Healthcare'],
+  ['BMRN','BioMarin','Healthcare'],['EXEL','Exelixis','Healthcare'],
+  ['RARE','Ultragenyx','Healthcare'],['ACAD','ACADIA Pharma','Healthcare'],
+  ['ABT','Abbott Laboratories','Healthcare'],['BAX','Baxter International','Healthcare'],
+  ['BDX','Becton Dickinson','Healthcare'],['EW','Edwards Lifesciences','Healthcare'],
+  ['ISRG','Intuitive Surgical','Healthcare'],['MDT','Medtronic','Healthcare'],
+  ['SYK','Stryker','Healthcare'],['ZBH','Zimmer Biomet','Healthcare'],
+  ['HOLX','Hologic','Healthcare'],['DXCM','DexCom','Healthcare'],
+  ['PODD','Insulet','Healthcare'],['TNDM','Tandem Diabetes','Healthcare'],
+  ['CVS','CVS Health','Healthcare'],['CI','Cigna','Healthcare'],
+  ['HUM','Humana','Healthcare'],['CNC','Centene','Healthcare'],
+  ['MOH','Molina Healthcare','Healthcare'],['ELV','Elevance Health','Healthcare'],
+  ['DGX','Quest Diagnostics','Healthcare'],['LH','Laboratory Corp','Healthcare'],
+  // Energy
+  ['XOM','ExxonMobil','Energy'],['CVX','Chevron','Energy'],
   ['COP','ConocoPhillips','Energy'],['SLB','SLB (Schlumberger)','Energy'],
-  ['OXY','Occidental Petroleum','Energy'],['NFLX','Netflix','Media'],
-  ['SBUX','Starbucks','Consumer'],['NKE','Nike','Consumer'],['TGT','Target','Retail'],
-  ['WMT','Walmart','Retail'],['HD','Home Depot','Retail'],['COST','Costco','Retail'],
+  ['OXY','Occidental Petroleum','Energy'],['PSX','Phillips 66','Energy'],
+  ['VLO','Valero Energy','Energy'],['MPC','Marathon Petroleum','Energy'],
+  ['EOG','EOG Resources','Energy'],['PXD','Pioneer Natural Resources','Energy'],
+  ['DVN','Devon Energy','Energy'],['FANG','Diamondback Energy','Energy'],
+  ['HAL','Halliburton','Energy'],['BKR','Baker Hughes','Energy'],
+  ['NOV','NOV Inc','Energy'],['FTI','TechnipFMC','Energy'],
+  ['NEE','NextEra Energy','Utilities'],['DUK','Duke Energy','Utilities'],
+  ['SO','Southern Company','Utilities'],['D','Dominion Energy','Utilities'],
+  ['AEP','American Electric Power','Utilities'],['EXC','Exelon','Utilities'],
+  ['XEL','Xcel Energy','Utilities'],['ES','Eversource Energy','Utilities'],
+  ['PCG','PG&E','Utilities'],['ED','Consolidated Edison','Utilities'],
+  // Consumer
+  ['AMZN','Amazon','Consumer'],['NFLX','Netflix','Media'],
+  ['DIS','Walt Disney','Media'],['CMCSA','Comcast','Media'],
+  ['CHTR','Charter Communications','Media'],['PARA','Paramount Global','Media'],
+  ['WBD','Warner Bros Discovery','Media'],['FOX','Fox Corporation','Media'],
+  ['NYT','New York Times','Media'],['SPOT','Spotify','Media'],
+  ['SNAP','Snap Inc','Social'],['PINS','Pinterest','Social'],
+  ['RDDT','Reddit','Social'],['BMBL','Bumble','Social'],
+  ['MTCH','Match Group','Social'],['IAC','IAC','Media'],
+  ['WMT','Walmart','Retail'],['TGT','Target','Retail'],
+  ['COST','Costco','Retail'],['HD','Home Depot','Retail'],
+  ['LOW','Lowe\'s','Retail'],['BBY','Best Buy','Retail'],
+  ['AMZN','Amazon','Retail'],['ETSY','Etsy','Retail'],
+  ['EBAY','eBay','Retail'],['W','Wayfair','Retail'],
+  ['OSTK','Overstock','Retail'],['CHWY','Chewy','Retail'],
+  ['PET','Wag Group','Consumer'],['BARK','Bark','Consumer'],
+  ['NKE','Nike','Consumer'],['LULU','Lululemon','Consumer'],
+  ['UAA','Under Armour','Consumer'],['SKX','Skechers','Consumer'],
+  ['CROX','Crocs','Consumer'],['DECK','Deckers Outdoor','Consumer'],
+  ['VFC','VF Corporation','Consumer'],['PVH','PVH Corp','Consumer'],
+  ['RL','Ralph Lauren','Consumer'],['TPR','Tapestry','Consumer'],
+  ['CPRI','Capri Holdings','Consumer'],['MOV','Movado','Consumer'],
+  ['SBUX','Starbucks','Consumer'],['MCD','McDonald\'s','Consumer'],
+  ['YUM','Yum! Brands','Consumer'],['QSR','Restaurant Brands','Consumer'],
+  ['DPZ','Domino\'s Pizza','Consumer'],['CMG','Chipotle','Consumer'],
+  ['SHAK','Shake Shack','Consumer'],['BROS','Dutch Bros','Consumer'],
+  ['DNUT','Krispy Kreme','Consumer'],['JACK','Jack in the Box','Consumer'],
+  ['WEN','Wendy\'s','Consumer'],['PZZA','Papa John\'s','Consumer'],
+  ['PG','Procter & Gamble','Consumer'],['KO','Coca-Cola','Consumer'],
+  ['PEP','PepsiCo','Consumer'],['MDLZ','Mondelez','Consumer'],
+  ['GIS','General Mills','Consumer'],['K','Kellogg\'s','Consumer'],
+  ['CPB','Campbell Soup','Consumer'],['HRL','Hormel Foods','Consumer'],
+  ['TSN','Tyson Foods','Consumer'],['KHC','Kraft Heinz','Consumer'],
+  ['CAG','Conagra Brands','Consumer'],['SJM','J.M. Smucker','Consumer'],
+  ['MKC','McCormick','Consumer'],['CHD','Church & Dwight','Consumer'],
+  ['CL','Colgate-Palmolive','Consumer'],['KMB','Kimberly-Clark','Consumer'],
+  ['EL','Estee Lauder','Consumer'],['ULTA','Ulta Beauty','Consumer'],
+  ['COTY','Coty Inc','Consumer'],['REV','Revlon','Consumer'],
+  // Industrial
   ['CAT','Caterpillar','Industrial'],['HON','Honeywell','Industrial'],
   ['BA','Boeing','Industrial'],['GE','GE Aerospace','Industrial'],
+  ['RTX','Raytheon Technologies','Industrial'],['LMT','Lockheed Martin','Industrial'],
+  ['NOC','Northrop Grumman','Industrial'],['GD','General Dynamics','Industrial'],
+  ['LHX','L3Harris','Industrial'],['HII','Huntington Ingalls','Industrial'],
+  ['MMM','3M','Industrial'],['EMR','Emerson Electric','Industrial'],
+  ['ROK','Rockwell Automation','Industrial'],['PH','Parker Hannifin','Industrial'],
+  ['ITW','Illinois Tool Works','Industrial'],['DOV','Dover Corporation','Industrial'],
+  ['XYL','Xylem','Industrial'],['AWK','American Water Works','Utilities'],
+  ['DE','Deere & Company','Industrial'],['AGCO','AGCO Corporation','Industrial'],
+  ['CNH','CNH Industrial','Industrial'],['PCAR','PACCAR','Industrial'],
+  ['CMI','Cummins','Industrial'],['ALSN','Allison Transmission','Industrial'],
   ['F','Ford Motor','Auto'],['GM','General Motors','Auto'],
-  ['UBER','Uber Technologies','Tech'],['LYFT','Lyft','Tech'],['ABNB','Airbnb','Travel'],
-  ['SNAP','Snap Inc.','Tech'],['SPOT','Spotify','Media'],['RBLX','Roblox','Gaming'],
   ['RIVN','Rivian','Auto/EV'],['LCID','Lucid Group','Auto/EV'],
-  ['SHOP','Shopify','Tech'],['SQ','Block (Square)','Finance'],['TWLO','Twilio','Tech'],
-  ['ZM','Zoom Video','Tech'],['DDOG','Datadog','Tech'],['SNOW','Snowflake','Tech'],
-  ['NET','Cloudflare','Tech'],['CRWD','CrowdStrike','Tech'],['PANW','Palo Alto Networks','Tech'],
-  ['S','SentinelOne','Tech'],['OKTA','Okta','Tech'],['MDB','MongoDB','Tech'],
-  ['GTLB','GitLab','Tech'],['U','Unity Software','Tech'],['RDFN','Redfin','Real Estate'],
-  ['Z','Zillow Group','Real Estate'],['OPEN','Opendoor','Real Estate'],
-  ['BBAI','BigBear.ai','Tech'],['RGTI','Rigetti Computing','Tech'],['QBTS','D-Wave Quantum','Tech'],
-  ['IREN','Iris Energy','Tech'],['MSTR','MicroStrategy','Finance'],['RIOT','Riot Platforms','Tech'],
-  ['MARA','Marathon Digital','Tech'],['CLSK','CleanSpark','Tech'],
-  ['TSM','Taiwan Semiconductor','Tech'],['ASML','ASML Holding','Tech'],
-  ['SAP','SAP SE','Tech'],['BABA','Alibaba','Tech'],['JD','JD.com','Consumer'],
-  ['PDD','PDD Holdings','Consumer'],['BIDU','Baidu','Tech'],
-  ['SPY','S&P 500 ETF','ETF'],['QQQ','Nasdaq 100 ETF','ETF'],['IWM','Russell 2000 ETF','ETF'],
-  ['GLD','Gold ETF','ETF'],['SLV','Silver ETF','ETF'],['USO','Oil ETF','ETF'],
+  ['FSR','Fisker','Auto/EV'],['NKLA','Nikola','Auto/EV'],
+  ['STLA','Stellantis','Auto'],['TM','Toyota','Auto'],
+  ['HMC','Honda','Auto'],['VWAGY','Volkswagen','Auto'],
+  ['BMWYY','BMW','Auto'],['MBGYY','Mercedes-Benz','Auto'],
+  // Real Estate
+  ['AMT','American Tower','Real Estate'],['PLD','Prologis','Real Estate'],
+  ['EQIX','Equinix','Real Estate'],['CCI','Crown Castle','Real Estate'],
+  ['SPG','Simon Property Group','Real Estate'],['O','Realty Income','Real Estate'],
+  ['VICI','VICI Properties','Real Estate'],['WPC','W. P. Carey','Real Estate'],
+  ['Z','Zillow Group','Real Estate'],['RDFN','Redfin','Real Estate'],
+  ['OPEN','Opendoor','Real Estate'],['COMP','Compass','Real Estate'],
+  // ETFs
+  ['SPY','S&P 500 ETF','ETF'],['QQQ','Nasdaq 100 ETF','ETF'],
+  ['IWM','Russell 2000 ETF','ETF'],['DIA','Dow Jones ETF','ETF'],
+  ['VTI','Total Stock Market ETF','ETF'],['VOO','Vanguard S&P 500','ETF'],
+  ['GLD','Gold ETF','ETF'],['SLV','Silver ETF','ETF'],
+  ['USO','Oil ETF','ETF'],['XLE','Energy Select ETF','ETF'],
+  ['XLF','Financial Select ETF','ETF'],['XLK','Tech Select ETF','ETF'],
+  ['XLV','Health Care ETF','ETF'],['XLI','Industrial ETF','ETF'],
+  ['ARKK','ARK Innovation ETF','ETF'],['ARKG','ARK Genomics ETF','ETF'],
+  ['SOXL','Semi Bull 3x ETF','ETF'],['TQQQ','Nasdaq 3x Bull ETF','ETF'],
+  // International / ADRs
+  ['BABA','Alibaba','China Tech'],['JD','JD.com','China Tech'],
+  ['PDD','PDD Holdings (Temu)','China Tech'],['BIDU','Baidu','China Tech'],
+  ['NIO','NIO','China EV'],['LI','Li Auto','China EV'],
+  ['XPEV','XPeng','China EV'],['BYD','BYD','China EV'],
+  ['SE','Sea Limited','SE Asia Tech'],['GRAB','Grab Holdings','SE Asia Tech'],
+  ['MELI','MercadoLibre','Latin America'],['NU','Nu Holdings (Nubank)','Latin America'],
+  ['VIST','Vista Energy','Latin America'],
+  ['SAP','SAP SE','Germany Tech'],['ASML','ASML Holding','Netherlands Tech'],
+  ['SHOP','Shopify','Canada Tech'],['RY','Royal Bank of Canada','Canada Finance'],
+  ['TD','Toronto-Dominion Bank','Canada Finance'],
+  // AI / Emerging
+  ['BBAI','BigBear.ai','AI'],['RGTI','Rigetti Computing','Quantum'],
+  ['QBTS','D-Wave Quantum','Quantum'],['IONQ','IonQ','Quantum'],
+  ['IREN','Iris Energy','AI/Mining'],['SOUN','SoundHound AI','AI'],
+  ['AI','C3.ai','AI'],['BIGB','BigBear','AI'],
+  ['PATH','UiPath','AI/Automation'],['ASAN','Asana','Tech'],
+  ['MNDY','Monday.com','Tech'],['SMAR','Smartsheet','Tech'],
+  ['ZI','ZoomInfo','Tech'],['BRZE','Braze','Tech'],
+  ['PCVX','Vaxcyte','Biotech'],['ACLS','Axcelis Technologies','Tech'],
+  ['FORM','FormFactor','Tech'],['ONTO','Onto Innovation','Tech'],
 ];
 
-// ─── Autocomplete logic ───────────────────────────────────────────────────────
-var selectedTicker = '';
-var activeIdx = -1;
 var filtered = [];
+var activeIdx = -1;
 
 function showAutocomplete(query) {
-  const q = query.toUpperCase();
   const ac = document.getElementById('autocomplete');
-  if (!q || q.length < 1) { ac.style.display = 'none'; return; }
+  const q = query.toUpperCase().trim();
+  if (!q) { ac.style.display = 'none'; return; }
 
+  // Match ticker start, then company name contains
   filtered = STOCKS.filter(s =>
-    s[0].startsWith(q) ||
-    s[1].toUpperCase().includes(q) ||
-    s[0].includes(q)
-  ).slice(0, 8);
+    s[0].startsWith(q) || s[1].toUpperCase().includes(q)
+  );
+  // Sort: exact ticker matches first
+  filtered.sort((a, b) => {
+    const aExact = a[0] === q ? 0 : a[0].startsWith(q) ? 1 : 2;
+    const bExact = b[0] === q ? 0 : b[0].startsWith(q) ? 1 : 2;
+    return aExact - bExact;
+  });
+  filtered = filtered.slice(0, 8);
 
   if (!filtered.length) { ac.style.display = 'none'; return; }
 
@@ -199,22 +363,14 @@ function showAutocomplete(query) {
 
 function selectStock(idx) {
   const s = filtered[idx];
-  selectedTicker = s[0];
   document.getElementById('ticker-input').value = s[0];
   document.getElementById('autocomplete').style.display = 'none';
   runAnalysis();
 }
 
-function hideAutocomplete() {
-  setTimeout(() => { document.getElementById('autocomplete').style.display = 'none'; }, 150);
-}
-
 const input = document.getElementById('ticker-input');
-input.addEventListener('input', e => {
-  selectedTicker = '';
-  showAutocomplete(e.target.value);
-});
-input.addEventListener('blur', hideAutocomplete);
+input.addEventListener('input', e => showAutocomplete(e.target.value));
+input.addEventListener('blur', () => setTimeout(() => { document.getElementById('autocomplete').style.display = 'none'; }, 150));
 input.addEventListener('keydown', e => {
   const ac = document.getElementById('autocomplete');
   const items = ac.querySelectorAll('.ac-item');
@@ -227,25 +383,19 @@ input.addEventListener('keydown', e => {
     activeIdx = Math.max(activeIdx - 1, -1);
     items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
   } else if (e.key === 'Enter') {
-    if (activeIdx >= 0 && filtered[activeIdx]) {
-      selectStock(activeIdx);
-    } else {
-      ac.style.display = 'none';
-      runAnalysis();
-    }
+    if (activeIdx >= 0 && filtered[activeIdx]) { selectStock(activeIdx); }
+    else { ac.style.display = 'none'; runAnalysis(); }
   } else if (e.key === 'Escape') {
     ac.style.display = 'none';
   }
 });
 
-// ─── Quick buttons ────────────────────────────────────────────────────────────
 function quick(t) {
   document.getElementById('ticker-input').value = t;
   document.getElementById('autocomplete').style.display = 'none';
   runAnalysis();
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function setStatus(msg) {
   document.getElementById('status-box').style.display = msg ? 'block' : 'none';
   document.getElementById('status-msg').textContent = msg;
@@ -261,11 +411,9 @@ function recLabel(text) {
   return m ? m[1].toUpperCase() : 'HOLD';
 }
 
-// ─── Main analysis ────────────────────────────────────────────────────────────
 async function runAnalysis() {
   const ticker = (document.getElementById('ticker-input').value || '').trim().toUpperCase();
   if (!ticker) return;
-
   const btn = document.getElementById('analyze-btn');
   btn.disabled = true; btn.textContent = 'ANALYZING...';
   document.getElementById('result-box').style.display = 'none';
@@ -279,12 +427,7 @@ async function runAnalysis() {
       body: JSON.stringify({ ticker })
     });
     const data = await res.json();
-
-    if (data.error) {
-      setStatus('Error: ' + data.error);
-      btn.disabled = false; btn.textContent = 'ANALYZE ›';
-      return;
-    }
+    if (data.error) { setStatus('Error: ' + data.error); btn.disabled = false; btn.textContent = 'ANALYZE ›'; return; }
 
     setStatus('');
     btn.disabled = false; btn.textContent = 'ANALYZE ›';
@@ -293,8 +436,6 @@ async function runAnalysis() {
     const rec = recLabel(analysis);
     const pctStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
     const catalyst = fld(analysis, 'Catalyst');
-
-    // Find company name from our list
     const stockInfo = STOCKS.find(s => s[0] === ticker);
     const companyName = stockInfo ? stockInfo[1] : '';
 
@@ -320,11 +461,7 @@ async function runAnalysis() {
           <div class="metric-item"><div class="metric-label">Prev Close</div><div class="metric-val">$${prevClose.toFixed(2)}</div></div>
         </div>
         <div class="result-body">
-          ${catalyst !== '—' && catalyst !== 'No clear catalyst' ? `
-          <div class="catalyst-box">
-            <div class="catalyst-label">⚡ CATALYST</div>
-            ${catalyst}
-          </div>` : ''}
+          ${catalyst !== '—' && catalyst !== 'No clear catalyst' ? `<div class="catalyst-box"><div class="catalyst-label">⚡ CATALYST</div>${catalyst}</div>` : ''}
           <div class="bull-bear">
             <div class="bull-box"><div class="bb-label">▲ BULL CASE</div><div class="bb-text">${fld(analysis,'Bull')}</div></div>
             <div class="bear-box"><div class="bb-label">▼ BEAR CASE</div><div class="bb-text">${fld(analysis,'Bear')}</div></div>
@@ -337,7 +474,6 @@ async function runAnalysis() {
           <div class="summary-box">${fld(analysis,'Summary')}</div>
         </div>
       </div>`;
-
   } catch(e) {
     setStatus('Error: ' + e.message);
     btn.disabled = false; btn.textContent = 'ANALYZE ›';
