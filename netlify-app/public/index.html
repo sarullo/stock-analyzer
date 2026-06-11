@@ -286,7 +286,7 @@ document.getElementById('analyze-btn').addEventListener('click', () => {
 async function analyze(ticker) {
   if (!ticker) return;
   document.getElementById('result').style.display = 'none';
-  document.getElementById('loading').style.display = '';
+  document.getElementById('loading').style.display = 'block';
   const em = document.getElementById('error-msg');
   em.style.display = 'none';
   document.getElementById('analyze-btn').disabled = true;
