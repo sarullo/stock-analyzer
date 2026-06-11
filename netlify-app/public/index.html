@@ -212,7 +212,7 @@ function renderHistory() {
   const section = document.getElementById('history-section');
   const tbody = document.getElementById('history-rows');
   if (!h.length) { section.style.display = 'none'; return; }
-  section.style.display = '';
+  section.style.display = 'block';
   tbody.innerHTML = h.map(e => {
     const d = new Date(e.ts);
     const date = d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
@@ -251,7 +251,7 @@ input.addEventListener('input', () => {
   acBox.innerHTML = acMatches.map((m, i) =>
     `<div class="ac-item" data-i="${i}"><span class="ac-sym">${m.s}</span><span class="ac-name">${m.n}</span></div>`
   ).join('');
-  acBox.style.display = '';
+  acBox.style.display = 'block';
   acBox.querySelectorAll('.ac-item').forEach(el => {
     el.addEventListener('mousedown', e => {
       e.preventDefault();
@@ -303,7 +303,7 @@ async function analyze(ticker) {
     pushHistory({ ticker: data.ticker, name: data.name, signal: data.signal, price: data.price, ts: Date.now() });
   } catch (err) {
     em.textContent = '⚠ ' + (err.message || 'Could not fetch data. Try again.');
-    em.style.display = '';
+    em.style.display = 'block';
   } finally {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('analyze-btn').disabled = false;
@@ -336,7 +336,7 @@ function renderResult(d) {
   ].map(m => `<div class="metric"><div class="metric-label">${m.l}</div><div class="metric-value">${m.v}</div></div>`).join('');
 
   const analysisEl = document.getElementById('r-analysis');
-  if (d.analysis) { analysisEl.innerHTML = d.analysis.split('\n').filter(Boolean).map(p => `<p>${p}</p>`).join(''); analysisEl.style.display = ''; }
+  if (d.analysis) { analysisEl.innerHTML = d.analysis.split('\n').filter(Boolean).map(p => `<p>${p}</p>`).join(''); analysisEl.style.display = 'block'; }
   else analysisEl.style.display = 'none';
 
   document.getElementById('result').style.display = 'block';
