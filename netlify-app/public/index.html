@@ -339,7 +339,7 @@ function renderResult(d) {
   if (d.analysis) { analysisEl.innerHTML = d.analysis.split('\n').filter(Boolean).map(p => `<p>${p}</p>`).join(''); analysisEl.style.display = ''; }
   else analysisEl.style.display = 'none';
 
-  document.getElementById('result').style.display = '';
+  document.getElementById('result').style.display = 'block';
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
