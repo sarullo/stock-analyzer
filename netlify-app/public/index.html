@@ -1,1 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alpha Agent — Stock Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #080c10; --surface: #0d1117; --border: #1e2630; --border2: #2a3540;
+  --text: #e8edf3; --muted: #64748b; --accent: #00ff88; --accent2: #00ccff;
+  --buy: #00c853; --hold: #f59e0b; --sell: #ef4444;
+  --mono: 'DM Mono', monospace; --sans: 'Inter', sans-serif; --display: 'Bebas Neue', sans-serif;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; padding: 2rem 1rem; }
+.wrap { max-width: 720px; margin: 0 auto; }
 
+header { text-align: center; margin-bottom: 2.5rem; }
+header .eyebrow { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.3em; color: var(--muted); text-transform: uppercase; margin-bottom: 0.5rem; }
+header h1 { font-family: var(--display); font-size: clamp(2.5rem, 8vw, 4rem); letter-spacing: 0.08em; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
+header .sub { font-size: 0.75rem; font-family: var(--mono); color: var(--muted); margin-top: 0.4rem; letter-spacing: 0.1em; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; }
+
+/* SEARCH */
+.search-row { display: flex; gap: 0.75rem; }
+.ticker-wrap { position: relative; flex: 1; }
+.ticker-prefix { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-weight: 500; color: var(--accent); font-size: 1rem; z-index: 1; pointer-events: none; }
+#ticker-input { width: 100%; background: #060a0e; border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem 0.85rem 2rem; color: var(--accent); font-family: var(--mono); font-size: 1rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; outline: none; transition: border-color 0.2s; }
+#ticker-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,255,136,0.08); }
+#ticker-input::placeholder { color: var(--muted); letter-spacing: 0.05em; text-transform: none; font-size: 0.85rem; font-weight: 400; }
+#analyze-btn { background: var(--accent); color: #000; font-family: var(--mono); font-weight: 500; font-size: 0.8rem; letter-spacing: 0.1em; padding: 0 1.5rem; border: none; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: opacity 0.2s; min-height: 48px; }
+#analyze-btn:hover { opacity: 0.85; }
+#analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* AUTOCOMPLETE */
+.ac-box { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #0d1117; border: 1px solid var(--border2); border-radius: 8px; z-index: 100; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: none; }
+.ac-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; cursor: pointer; transition: background 0.1s; }
+.ac-item:hover, .ac-item.active { background: #131a23; }
+.ac-sym { font-family: var(--mono); font-size: 0.8rem; font-weight: 500; color: var(--accent); min-width: 3.5rem; }
+.ac-name { font-size: 0.78rem; color: var(--muted); }
+
+/* LOADING */
+#loading { display: none; text-align: center; padding: 2rem; }
+.spinner { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 0.75rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-label { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 0.15em; }
+
+/* ERROR */
+#error-msg { display: none; font-family: var(--mono); font-size: 0.8rem; color: var(--sell); padding: 0.75rem 1rem; background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; margin-top: 0.75rem; }
+
+/* RESULT */
+#result { display: none; }
+.result-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap; }
+.r-label { font-size: 0.7rem; font-family: var(--mono); color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.2rem; }
+.r-ticker { font-family: var(--display); font-size: 2rem; letter-spacing: 0.08em; }
+.r-price { text-align: right; }
+.r-price .price { font-family: var(--mono); font-size: 1.8rem; font-weight: 500; }
+.r-price .change { font-family: var(--mono); font-size: 0.75rem; margin-top: 0.1rem; }
+.pos { color: var(--buy); } .neg { color: var(--sell); }
+
+.signal-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 1rem; border-radius: 6px; font-family: var(--mono); font-size: 0.8rem; font-weight: 500; letter-spacing: 0.1em; margin-top: 0.5rem; }
+.signal-badge.buy { background: rgba(0,200,83,0.15); color: var(--buy); border: 1px solid rgba(0,200,83,0.3); }
+.signal-badge.hold { background: rgba(245,158,11,0.12); color: var(--hold); border: 1px solid rgba(245,158,11,0.25); }
+.signal-badge.sell { background: rgba(239,68,68,0.12); color: var(--sell); border: 1px solid rgba(239,68,68,0.25); }
+.signal-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+.metric { background: #060a0e; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
+.metric-label { font-size: 0.6rem; font-family: var(--mono); color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 0.3rem; }
+.metric-value { font-family: var(--mono); font-size: 0.95rem; font-weight: 500; }
+
+.analysis-text { font-size: 0.82rem; line-height: 1.75; color: #94a3b8; border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1rem; }
+
+/* HISTORY */
+#history-section { display: none; }
+.history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.history-title { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.25em; color: var(--muted); text-transform: uppercase; }
+#clear-btn { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.65rem; cursor: pointer; letter-spacing: 0.08em; transition: color 0.15s, border-color 0.15s; }
+#clear-btn:hover { color: var(--sell); border-color: var(--sell); }
+
+.htable { width: 100%; border-collapse: collapse; }
+.htable th { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; text-align: left; padding: 0 0.75rem 0.5rem; border-bottom: 1px solid var(--border); }
+.htable th.right { text-align: right; }
+.htable td { padding: 0.55rem 0.75rem; border-bottom: 1px solid rgba(30,38,48,0.5); vertical-align: middle; }
+.htable tr:last-child td { border-bottom: none; }
+.htable tbody tr { cursor: pointer; transition: background 0.1s; }
+.htable tbody tr:hover td { background: rgba(255,255,255,0.025); }
+.h-sym { font-family: var(--mono); font-size: 0.82rem; font-weight: 500; color: var(--accent); }
+.h-co { font-size: 0.74rem; color: var(--muted); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.h-pr { font-family: var(--mono); font-size: 0.82rem; color: var(--text); text-align: right; }
+.h-dt { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); text-align: right; }
+.sb { font-family: var(--mono); font-size: 0.65rem; font-weight: 500; padding: 0.15rem 0.5rem; border-radius: 4px; }
+.sb.buy { background: rgba(0,200,83,0.15); color: var(--buy); }
+.sb.hold { background: rgba(245,158,11,0.12); color: var(--hold); }
+.sb.sell { background: rgba(239,68,68,0.12); color: var(--sell); }
+
+.footer { text-align: center; margin-top: 2rem; padding-bottom: 2rem; font-family: var(--mono); font-size: 0.58rem; color: #1e2630; letter-spacing: 0.12em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">AI-Powered Analysis</div>
+    <h1>ALPHA AGENT</h1>
+    <div class="sub">Real-time stock intelligence · Powered by Claude</div>
+  </header>
+
+  <!-- SEARCH CARD -->
+  <div class="card">
+    <div class="search-row">
+      <div class="ticker-wrap">
+        <span class="ticker-prefix">$</span>
+        <input id="ticker-input" type="text" placeholder="Type ticker or company name…" autocomplete="off" spellcheck="false" maxlength="10">
+        <div id="ac-box" class="ac-box"></div>
+      </div>
+      <button id="analyze-btn">ANALYZE</button>
+    </div>
+    <div id="error-msg"></div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading" class="card">
+    <div class="spinner"></div>
+    <div class="loading-label">FETCHING MARKET DATA…</div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result" class="card">
+    <div class="result-header">
+      <div>
+        <div class="r-label" id="r-name"></div>
+        <div class="r-ticker" id="r-ticker"></div>
+        <div id="r-signal"></div>
+      </div>
+      <div class="r-price">
+        <div class="price" id="r-price"></div>
+        <div class="change" id="r-change"></div>
+      </div>
+    </div>
+    <div class="metrics-grid" id="r-metrics"></div>
+    <div class="analysis-text" id="r-analysis"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div id="history-section" class="card">
+    <div class="history-header">
+      <span class="history-title">Recent Searches</span>
+      <button id="clear-btn">CLEAR ALL</button>
+    </div>
+    <table class="htable">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Company</th>
+          <th>Signal</th>
+          <th class="right">Price</th>
+          <th class="right">Searched</th>
+        </tr>
+      </thead>
+      <tbody id="history-rows"></tbody>
+    </table>
+  </div>
+
+  <div class="footer">ALPHA AGENT · FOR INFORMATIONAL PURPOSES ONLY · NOT FINANCIAL ADVICE</div>
+</div>
+
+<script>
+// ── SYMBOLS ──────────────────────────────────────────────────────────────────
+const SYMBOLS = [
+  {s:'AAPL',n:'Apple Inc.'},{s:'MSFT',n:'Microsoft Corp.'},{s:'GOOGL',n:'Alphabet Inc.'},
+  {s:'AMZN',n:'Amazon.com Inc.'},{s:'NVDA',n:'NVIDIA Corp.'},{s:'META',n:'Meta Platforms'},
+  {s:'TSLA',n:'Tesla Inc.'},{s:'BRK.B',n:'Berkshire Hathaway'},{s:'JPM',n:'JPMorgan Chase'},
+  {s:'V',n:'Visa Inc.'},{s:'MA',n:'Mastercard'},{s:'UNH',n:'UnitedHealth Group'},
+  {s:'JNJ',n:'Johnson & Johnson'},{s:'XOM',n:'Exxon Mobil'},{s:'PG',n:'Procter & Gamble'},
+  {s:'HD',n:'Home Depot'},{s:'CVX',n:'Chevron Corp.'},{s:'MRK',n:'Merck & Co.'},
+  {s:'ABBV',n:'AbbVie Inc.'},{s:'LLY',n:'Eli Lilly'},{s:'BAC',n:'Bank of America'},
+  {s:'PFE',n:'Pfizer Inc.'},{s:'KO',n:'Coca-Cola Co.'},{s:'AVGO',n:'Broadcom Inc.'},
+  {s:'PEP',n:'PepsiCo Inc.'},{s:'COST',n:'Costco Wholesale'},{s:'MCD',n:"McDonald's Corp."},
+  {s:'WMT',n:'Walmart Inc.'},{s:'DIS',n:'Walt Disney Co.'},{s:'NFLX',n:'Netflix Inc.'},
+  {s:'AMD',n:'Advanced Micro Devices'},{s:'INTC',n:'Intel Corp.'},{s:'QCOM',n:'Qualcomm Inc.'},
+  {s:'CRM',n:'Salesforce Inc.'},{s:'ADBE',n:'Adobe Inc.'},{s:'ORCL',n:'Oracle Corp.'},
+  {s:'IBM',n:'IBM Corp.'},{s:'NOW',n:'ServiceNow Inc.'},{s:'UBER',n:'Uber Technologies'},
+  {s:'PYPL',n:'PayPal Holdings'},{s:'SHOP',n:'Shopify Inc.'},{s:'PLTR',n:'Palantir Technologies'},
+  {s:'COIN',n:'Coinbase Global'},{s:'MSTR',n:'MicroStrategy'},{s:'IBIT',n:'iShares Bitcoin ETF'},
+  {s:'SPY',n:'S&P 500 ETF'},{s:'QQQ',n:'Nasdaq 100 ETF'},{s:'IWM',n:'Russell 2000 ETF'},
+  {s:'GLD',n:'Gold ETF'},{s:'VTI',n:'Vanguard Total Market'},{s:'VOO',n:'Vanguard S&P 500'},
+  {s:'ARKK',n:'ARK Innovation ETF'},{s:'F',n:'Ford Motor Co.'},{s:'GM',n:'General Motors'},
+  {s:'BA',n:'Boeing Co.'},{s:'GS',n:'Goldman Sachs'},{s:'MS',n:'Morgan Stanley'},
+  {s:'SCHW',n:'Charles Schwab'},{s:'GE',n:'GE Aerospace'},{s:'CAT',n:'Caterpillar Inc.'},
+  {s:'NIO',n:'NIO Inc.'},{s:'BABA',n:'Alibaba Group'},{s:'TSM',n:'Taiwan Semiconductor'},
+  {s:'RIVN',n:'Rivian Automotive'},{s:'GME',n:'GameStop Corp.'},{s:'AMC',n:'AMC Entertainment'},
+];
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+const HKEY = 'equityradar_v2';
+function loadHistory() { try { return JSON.parse(localStorage.getItem(HKEY)) || []; } catch { return []; } }
+function saveHistory(h) { try { localStorage.setItem(HKEY, JSON.stringify(h)); } catch {} }
+
+function pushHistory(entry) {
+  let h = loadHistory().filter(x => x.ticker !== entry.ticker);
+  h.unshift(entry);
+  if (h.length > 50) h = h.slice(0, 50);
+  saveHistory(h);
+  renderHistory();
+}
+
+function renderHistory() {
+  const h = loadHistory();
+  const section = document.getElementById('history-section');
+  const tbody = document.getElementById('history-rows');
+  if (!h.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  tbody.innerHTML = h.map(e => {
+    const d = new Date(e.ts);
+    const date = d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+    const time = d.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
+    const sig = (e.signal || 'HOLD').toLowerCase();
+    return `<tr onclick="quickLoad('${e.ticker}')">
+      <td><span class="h-sym">${e.ticker}</span></td>
+      <td><span class="h-co">${e.name}</span></td>
+      <td><span class="sb ${sig}">${e.signal}</span></td>
+      <td class="h-pr">$${e.price}</td>
+      <td class="h-dt">${date} ${time}</td>
+    </tr>`;
+  }).join('');
+}
+
+function quickLoad(ticker) {
+  document.getElementById('ticker-input').value = ticker;
+  analyze(ticker);
+}
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  if (confirm('Clear all search history?')) { saveHistory([]); renderHistory(); }
+});
+
+// ── AUTOCOMPLETE ──────────────────────────────────────────────────────────────
+const input = document.getElementById('ticker-input');
+const acBox = document.getElementById('ac-box');
+let acIdx = -1, acMatches = [];
+
+input.addEventListener('input', () => {
+  const q = input.value.trim().toUpperCase();
+  acIdx = -1;
+  if (!q) { acBox.style.display = 'none'; return; }
+  acMatches = SYMBOLS.filter(x => x.s.startsWith(q) || x.n.toUpperCase().includes(q)).slice(0, 7);
+  if (!acMatches.length) { acBox.style.display = 'none'; return; }
+  acBox.innerHTML = acMatches.map((m, i) =>
+    `<div class="ac-item" data-i="${i}"><span class="ac-sym">${m.s}</span><span class="ac-name">${m.n}</span></div>`
+  ).join('');
+  acBox.style.display = 'block';
+  acBox.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const m = acMatches[+el.dataset.i];
+      input.value = m.s;
+      acBox.style.display = 'none';
+      analyze(m.s);
+    });
+  });
+});
+
+input.addEventListener('keydown', e => {
+  const items = acBox.querySelectorAll('.ac-item');
+  if (e.key === 'ArrowDown') { acIdx = Math.min(acIdx + 1, items.length - 1); hlAC(items); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { acIdx = Math.max(acIdx - 1, 0); hlAC(items); e.preventDefault(); }
+  else if (e.key === 'Enter') {
+    if (acIdx >= 0 && items[acIdx]) { input.value = acMatches[acIdx].s; }
+    acBox.style.display = 'none';
+    analyze(input.value.trim().toUpperCase());
+  }
+  else if (e.key === 'Escape') acBox.style.display = 'none';
+});
+document.addEventListener('click', e => { if (!e.target.closest('.ticker-wrap')) acBox.style.display = 'none'; });
+function hlAC(items) { items.forEach((el, i) => el.classList.toggle('active', i === acIdx)); }
+
+document.getElementById('analyze-btn').addEventListener('click', () => {
+  const t = input.value.trim().toUpperCase();
+  if (t) { acBox.style.display = 'none'; analyze(t); }
+});
+
+// ── ANALYZE ───────────────────────────────────────────────────────────────────
+async function analyze(ticker) {
+  if (!ticker) return;
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+  const em = document.getElementById('error-msg');
+  em.style.display = 'none';
+  document.getElementById('analyze-btn').disabled = true;
+
+  try {
+    const res = await fetch('/.netlify/functions/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Analysis failed');
+    renderResult(data);
+    pushHistory({ ticker: data.ticker, name: data.name, signal: data.signal, price: data.price, ts: Date.now() });
+  } catch (err) {
+    em.textContent = '⚠ ' + (err.message || 'Could not fetch data. Try again.');
+    em.style.display = 'block';
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('analyze-btn').disabled = false;
+  }
+}
+
+function renderResult(d) {
+  document.getElementById('r-name').textContent = d.name || '';
+  document.getElementById('r-ticker').textContent = '$' + d.ticker;
+
+  document.getElementById('r-price').textContent = d.price ? '$' + Number(d.price).toFixed(2) : '—';
+
+  const chg = Number(d.change), pct = Number(d.changePct);
+  const sign = chg >= 0 ? '+' : '';
+  const changeEl = document.getElementById('r-change');
+  changeEl.textContent = `${sign}${chg.toFixed(2)} (${sign}${pct.toFixed(2)}%)`;
+  changeEl.className = 'change ' + (chg >= 0 ? 'pos' : 'neg');
+
+  const sig = (d.signal || 'HOLD').toLowerCase();
+  document.getElementById('r-signal').innerHTML =
+    `<span class="signal-badge ${sig}"><span class="signal-dot"></span>${d.signal || 'HOLD'}</span>`;
+
+  const fmtN = n => n >= 1e9 ? (n/1e9).toFixed(1)+'B' : n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(0)+'K' : String(n);
+  document.getElementById('r-metrics').innerHTML = [
+    {l:'Open',   v: d.open   ? '$'+Number(d.open).toFixed(2)   : '—'},
+    {l:'High',   v: d.high   ? '$'+Number(d.high).toFixed(2)   : '—'},
+    {l:'Low',    v: d.low    ? '$'+Number(d.low).toFixed(2)    : '—'},
+    {l:'VWAP',   v: d.vwap   ? '$'+Number(d.vwap).toFixed(2)   : '—'},
+    {l:'Volume', v: d.volume ? fmtN(d.volume)                  : '—'},
+  ].map(m => `<div class="metric"><div class="metric-label">${m.l}</div><div class="metric-value">${m.v}</div></div>`).join('');
+
+  const analysisEl = document.getElementById('r-analysis');
+  if (d.analysis) { analysisEl.innerHTML = d.analysis.split('\n').filter(Boolean).map(p => `<p>${p}</p>`).join(''); analysisEl.style.display = 'block'; }
+  else analysisEl.style.display = 'none';
+
+  document.getElementById('result').style.display = 'block';
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderHistory();
+</script>
+</body>
+</html>
