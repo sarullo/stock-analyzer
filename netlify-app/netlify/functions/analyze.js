@@ -1,145 +1,163 @@
 const https = require('https');
 
-exports.handler = async function(event) {
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-      },
-      body: ''
-    };
-  }
-
-  try {
-    const { ticker } = JSON.parse(event.body);
-    if (!ticker) throw new Error('Ticker required');
-
-    const AK = process.env.ALPACA_KEY;
-    const AS = process.env.ALPACA_SECRET;
-    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-
-    // Fetch snapshot from Alpaca
-    const snapData = await alpacaFetch(
-      'https://data.alpaca.markets/v2/stocks/snapshots?symbols=' + ticker, AK, AS
-    );
-    const snap = snapData[ticker];
-    if (!snap || !snap.dailyBar || !snap.prevDailyBar) {
-      return respond(400, { error: 'No data found for ' + ticker });
-    }
-
-    // Fetch news from Alpaca
-    const newsData = await alpacaFetch(
-      'https://data.alpaca.markets/v1beta1/news?symbols=' + ticker + '&limit=3', AK, AS
-    );
-    const headlines = (newsData.news || []).map(n => n.headline).join('\n') || 'No recent news.';
-
-    const q = snap.dailyBar, pq = snap.prevDailyBar;
-    const price = q.c;
-    const chg = ((price - pq.c) / pq.c * 100);
-    const gap = ((q.o - pq.c) / pq.c * 100);
-    const dr = q.h - q.l;
-    const cp = dr > 0 ? ((price - q.l) / dr * 100).toFixed(0) : 'N/A';
-
-    const dataBlock = [
-      'Ticker: ' + ticker,
-      'Price: $' + price.toFixed(2) + ' (' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '% today)',
-      'Open: $' + q.o.toFixed(2) + ' | High: $' + q.h.toFixed(2) + ' | Low: $' + q.l.toFixed(2),
-      'VWAP: $' + q.vw.toFixed(2) + ' — price is ' + (price > q.vw ? 'ABOVE (bullish)' : 'BELOW (bearish)'),
-      'Close position in day range: ' + cp + '% (100 = closed at high)',
-      'Gap from prev close: ' + (gap >= 0 ? '+' : '') + gap.toFixed(2) + '%',
-      'Volume: ' + (q.v / 1e6).toFixed(1) + 'M',
-      '',
-      'Recent news:',
-      headlines
-    ].join('\n');
-
-    // Call Claude
-    const analysis = await claudeFetch(ANTHROPIC_KEY, ticker, dataBlock);
-
-    return respond(200, {
-      ticker, price, chg, gap,
-      high: q.h, low: q.l, vwap: q.vw, volume: q.v,
-      prevClose: pq.c, closePosition: cp,
-      analysis
-    });
-
-  } catch(e) {
-    return respond(500, { error: e.message });
-  }
-};
-
-function alpacaFetch(url, ak, as) {
+function httpsGet(url, headers) {
   return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const opts = {
-      hostname: u.hostname, path: u.pathname + u.search, method: 'GET',
-      headers: { 'APCA-API-KEY-ID': ak, 'APCA-API-SECRET-KEY': as }
-    };
-    https.get(opts, res => {
+    https.get(url, { headers }, res => {
       let data = '';
       res.on('data', d => data += d);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch { reject(new Error('Invalid JSON from ' + url)); }
+      });
     }).on('error', reject);
   });
 }
 
-function claudeFetch(key, ticker, dataBlock) {
+function httpsPost(hostname, path, headers, body) {
   return new Promise((resolve, reject) => {
-    const prompt = 'Analyze ' + ticker + ':\n\n' + dataBlock + '\n\n'
-      + 'Respond in EXACTLY this format:\n'
-      + 'Catalyst: [primary driver of move or No clear catalyst]\n'
-      + 'Bull: [bull case with numbers]\n'
-      + 'Bear: [bear case with numbers]\n'
-      + 'RECOMMENDATION: [BUY or HOLD or SELL]\n'
-      + 'Confidence: [HIGH or MEDIUM or LOW]\n'
-      + 'Target: $[12-month estimate]\n'
-      + 'Entry: [buy now at $X or wait for dip to $X]\n'
-      + 'Summary: [2 sentences]';
-
-    const body = JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 600,
-      system: 'You are a senior equity analyst. Give clear actionable recommendations with specific numbers. BUY for strong movers with real news catalysts. HOLD for mixed signals. SELL for weak price action.',
-      messages: [{ role: 'user', content: prompt }]
-    });
-
-    const opts = {
-      hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'Content-Length': Buffer.byteLength(body)
-      }
-    };
-
-    const req = https.request(opts, res => {
+    const bodyStr = JSON.stringify(body);
+    const req = https.request({ hostname, path, method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(bodyStr) } }, res => {
       let data = '';
       res.on('data', d => data += d);
       res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) return reject(new Error(parsed.error.message));
-          resolve(parsed.content[0].text);
-        } catch(e) { reject(e); }
+        try { resolve(JSON.parse(data)); }
+        catch { reject(new Error('Invalid JSON from Anthropic')); }
       });
     });
     req.on('error', reject);
-    req.write(body);
+    req.write(bodyStr);
     req.end();
   });
 }
 
-function respond(status, body) {
-  return {
-    statusCode: status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    },
-    body: JSON.stringify(body)
+exports.handler = async function(event) {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
-}
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers: corsHeaders, body: '' };
+  }
+
+  try {
+    const { ticker } = JSON.parse(event.body || '{}');
+    if (!ticker) return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Ticker required' }) };
+
+    const sym = ticker.toUpperCase().trim();
+    const AK = process.env.ALPACA_KEY;
+    const AS = process.env.ALPACA_SECRET;
+    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+
+    // ── Fetch snapshot from Alpaca ──
+    const snapData = await httpsGet(
+      `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${sym}&feed=iex`,
+      { 'APCA-API-KEY-ID': AK, 'APCA-API-SECRET-KEY': AS }
+    );
+
+    const snap = snapData[sym];
+    if (!snap || !snap.dailyBar) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ error: `No data found for ${sym}. Check the ticker symbol.` }) };
+    }
+
+    // ── Fetch news ──
+    let headlines = 'No recent news available.';
+    try {
+      const newsData = await httpsGet(
+        `https://data.alpaca.markets/v1beta1/news?symbols=${sym}&limit=5`,
+        { 'APCA-API-KEY-ID': AK, 'APCA-API-SECRET-KEY': AS }
+      );
+      if (newsData.news && newsData.news.length > 0) {
+        headlines = newsData.news.map(n => `- ${n.headline}`).join('\n');
+      }
+    } catch {}
+
+    const q = snap.dailyBar;
+    const lq = snap.latestTrade || {};
+    const pq = snap.prevDailyBar || {};
+    const price = lq.p || q.c;
+    const prevClose = pq.c || q.o;
+    const change = price - prevClose;
+    const changePct = prevClose ? (change / prevClose * 100) : 0;
+    const vwap = q.vw || 0;
+    const volume = q.v || 0;
+
+    // ── Fetch asset info for company name ──
+    let companyName = sym;
+    try {
+      const assetData = await httpsGet(
+        `https://paper-api.alpaca.markets/v2/assets/${sym}`,
+        { 'APCA-API-KEY-ID': AK, 'APCA-API-SECRET-KEY': AS }
+      );
+      if (assetData.name) companyName = assetData.name;
+    } catch {}
+
+    // ── Build context for Claude ──
+    const dataBlock = [
+      `Ticker: ${sym}`,
+      `Company: ${companyName}`,
+      `Current Price: $${price.toFixed(2)}`,
+      `Change: ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`,
+      `Open: $${q.o.toFixed(2)} | High: $${q.h.toFixed(2)} | Low: $${q.l.toFixed(2)} | Close: $${q.c.toFixed(2)}`,
+      `VWAP: $${vwap.toFixed(2)} — price is ${price > vwap ? 'ABOVE' : 'BELOW'} VWAP`,
+      `Volume: ${volume.toLocaleString()}`,
+      `\nRecent Headlines:\n${headlines}`
+    ].join('\n');
+
+    // ── Call Claude ──
+    const claudeRes = await httpsPost(
+      'api.anthropic.com',
+      '/v1/messages',
+      {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      {
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        system: `You are Alpha Agent, a concise stock analyst. Given market data, provide:
+1. A signal: exactly one word — BUY, HOLD, or SELL
+2. A brief 3-4 sentence analysis explaining your reasoning based on price action, momentum, and news.
+
+Format your response EXACTLY like this (no markdown, no extra text):
+SIGNAL: BUY
+ANALYSIS: Your analysis here in 3-4 sentences.`,
+        messages: [{ role: 'user', content: `Analyze this stock:\n\n${dataBlock}` }]
+      }
+    );
+
+    const responseText = claudeRes.content?.[0]?.text || '';
+    const signalMatch = responseText.match(/SIGNAL:\s*(BUY|HOLD|SELL)/i);
+    const analysisMatch = responseText.match(/ANALYSIS:\s*([\s\S]+)/i);
+    const signal = signalMatch ? signalMatch[1].toUpperCase() : 'HOLD';
+    const analysis = analysisMatch ? analysisMatch[1].trim() : responseText;
+
+    return {
+      statusCode: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticker: sym,
+        name: companyName,
+        price: price.toFixed(2),
+        change: change.toFixed(2),
+        changePct: changePct.toFixed(2),
+        open: q.o.toFixed(2),
+        high: q.h.toFixed(2),
+        low: q.l.toFixed(2),
+        volume,
+        vwap: vwap.toFixed(2),
+        signal,
+        analysis
+      })
+    };
+
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: err.message || 'Internal error' })
+    };
+  }
+};
