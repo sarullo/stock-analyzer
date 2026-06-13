@@ -116,23 +116,42 @@ exports.handler = async function(event) {
       },
       {
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 600,
-        system: `You are Alpha Agent, a concise stock analyst. Given market data, provide:
-1. A signal: exactly one word — BUY, HOLD, or SELL
-2. A brief 3-4 sentence analysis explaining your reasoning based on price action, momentum, and news.
+        max_tokens: 1000,
+        system: `You are Alpha Agent, a professional stock analyst. Given market data, provide a structured analysis.
 
 Format your response EXACTLY like this (no markdown, no extra text):
 SIGNAL: BUY
-ANALYSIS: Your analysis here in 3-4 sentences.`,
+CONFIDENCE: HIGH
+TARGET_12M: $XXX
+ENTRY: Buy now / Wait for dip to $XXX-XXX / Avoid
+BULL_CASE: 3-4 sentences on bullish thesis based on price action, technicals, and news.
+BEAR_CASE: 3-4 sentences on bearish risks and concerns.
+ANALYSIS: 2-3 sentence overall summary and recommendation.
+
+CONFIDENCE must be LOW, MEDIUM, or HIGH.
+TARGET_12M should be a realistic 12-month price target.
+ENTRY should be a short actionable phrase.`,
         messages: [{ role: 'user', content: `Analyze this stock:\n\n${dataBlock}` }]
       }
     );
 
     const responseText = claudeRes.content?.[0]?.text || '';
-    const signalMatch = responseText.match(/SIGNAL:\s*(BUY|HOLD|SELL)/i);
-    const analysisMatch = responseText.match(/ANALYSIS:\s*([\s\S]+)/i);
-    const signal = signalMatch ? signalMatch[1].toUpperCase() : 'HOLD';
-    const analysis = analysisMatch ? analysisMatch[1].trim() : responseText;
+    const field = (key) => {
+      const m = responseText.match(new RegExp(`${key}:\\s*([^\\n]+)`));
+      return m ? m[1].trim() : '';
+    };
+    const longField = (key) => {
+      const m = responseText.match(new RegExp(`${key}:\\s*([\\s\\S]+?)(?=\\n[A-Z_]+:|$)`));
+      return m ? m[1].trim() : '';
+    };
+
+    const signal = (field('SIGNAL') || 'HOLD').toUpperCase();
+    const confidence = (field('CONFIDENCE') || 'MEDIUM').toUpperCase();
+    const target12m = field('TARGET_12M');
+    const entry = field('ENTRY');
+    const bullCase = longField('BULL_CASE');
+    const bearCase = longField('BEAR_CASE');
+    const analysis = longField('ANALYSIS');
 
     return {
       statusCode: 200,
@@ -146,9 +165,15 @@ ANALYSIS: Your analysis here in 3-4 sentences.`,
         open: q.o.toFixed(2),
         high: q.h.toFixed(2),
         low: q.l.toFixed(2),
+        prevClose: prevClose.toFixed(2),
         volume,
         vwap: vwap.toFixed(2),
         signal,
+        confidence,
+        target12m,
+        entry,
+        bullCase,
+        bearCase,
         analysis
       })
     };

@@ -34,6 +34,12 @@ header .sub { font-size: 0.75rem; font-family: var(--mono); color: var(--muted);
 #analyze-btn:hover { opacity: 0.85; }
 #analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* QUICK CHIPS */
+.quick-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.85rem; }
+.quick-label { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); letter-spacing: 0.15em; align-self: center; margin-right: 0.25rem; }
+.quick-chip { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); background: #060a0e; border: 1px solid var(--border); border-radius: 4px; padding: 0.25rem 0.6rem; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+.quick-chip:hover { color: var(--accent); border-color: var(--accent); }
+
 /* AUTOCOMPLETE */
 .ac-box { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #0d1117; border: 1px solid var(--border2); border-radius: 8px; z-index: 100; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: none; }
 .ac-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; cursor: pointer; transition: background 0.1s; }
@@ -71,7 +77,23 @@ header .sub { font-size: 0.75rem; font-family: var(--mono); color: var(--muted);
 .metric-label { font-size: 0.6rem; font-family: var(--mono); color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 0.3rem; }
 .metric-value { font-family: var(--mono); font-size: 0.95rem; font-weight: 500; }
 
-.analysis-text { font-size: 0.82rem; line-height: 1.75; color: #94a3b8; border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1rem; }
+/* BULL / BEAR */
+.case-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1rem 0; }
+.case-box { background: #060a0e; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+.case-box.bull { border-top: 2px solid var(--buy); }
+.case-box.bear { border-top: 2px solid var(--sell); }
+.case-title { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
+.case-box.bull .case-title { color: var(--buy); }
+.case-box.bear .case-title { color: var(--sell); }
+.case-text { font-size: 0.76rem; line-height: 1.7; color: #94a3b8; }
+
+/* BOTTOM ROW */
+.bottom-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin: 0.75rem 0; }
+.bottom-metric { background: #060a0e; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
+.bottom-metric .metric-label { font-size: 0.6rem; font-family: var(--mono); color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 0.3rem; }
+.bottom-metric .metric-value { font-family: var(--mono); font-size: 0.88rem; font-weight: 500; line-height: 1.4; }
+
+.analysis-text { font-size: 0.82rem; line-height: 1.75; color: #94a3b8; border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 0.75rem; }
 
 /* HISTORY */
 #history-section { display: none; }
@@ -119,6 +141,17 @@ header .sub { font-size: 0.75rem; font-family: var(--mono); color: var(--muted);
       <button id="analyze-btn">ANALYZE</button>
     </div>
     <div id="error-msg"></div>
+    <div class="quick-row">
+      <span class="quick-label">QUICK:</span>
+      <span class="quick-chip" onclick="quickLoad('NVDA')">NVDA</span>
+      <span class="quick-chip" onclick="quickLoad('AAPL')">AAPL</span>
+      <span class="quick-chip" onclick="quickLoad('MSFT')">MSFT</span>
+      <span class="quick-chip" onclick="quickLoad('TSLA')">TSLA</span>
+      <span class="quick-chip" onclick="quickLoad('META')">META</span>
+      <span class="quick-chip" onclick="quickLoad('AMD')">AMD</span>
+      <span class="quick-chip" onclick="quickLoad('MRVL')">MRVL</span>
+      <span class="quick-chip" onclick="quickLoad('AVGO')">AVGO</span>
+    </div>
   </div>
 
   <!-- LOADING -->
@@ -141,6 +174,8 @@ header .sub { font-size: 0.75rem; font-family: var(--mono); color: var(--muted);
       </div>
     </div>
     <div class="metrics-grid" id="r-metrics"></div>
+    <div class="case-grid" id="r-cases"></div>
+    <div class="bottom-grid" id="r-bottom"></div>
     <div class="analysis-text" id="r-analysis"></div>
   </div>
 
@@ -328,12 +363,35 @@ function renderResult(d) {
 
   const fmtN = n => n >= 1e9 ? (n/1e9).toFixed(1)+'B' : n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(0)+'K' : String(n);
   document.getElementById('r-metrics').innerHTML = [
-    {l:'Open',   v: d.open   ? '$'+Number(d.open).toFixed(2)   : '—'},
-    {l:'High',   v: d.high   ? '$'+Number(d.high).toFixed(2)   : '—'},
-    {l:'Low',    v: d.low    ? '$'+Number(d.low).toFixed(2)    : '—'},
-    {l:'VWAP',   v: d.vwap   ? '$'+Number(d.vwap).toFixed(2)   : '—'},
-    {l:'Volume', v: d.volume ? fmtN(d.volume)                  : '—'},
+    {l:'High',       v: d.high      ? '$'+Number(d.high).toFixed(2)      : '—'},
+    {l:'Low',        v: d.low       ? '$'+Number(d.low).toFixed(2)       : '—'},
+    {l:'VWAP',       v: d.vwap      ? '$'+Number(d.vwap).toFixed(2)      : '—'},
+    {l:'Volume',     v: d.volume    ? fmtN(d.volume)                     : '—'},
+    {l:'Prev Close', v: d.prevClose ? '$'+Number(d.prevClose).toFixed(2) : '—'},
   ].map(m => `<div class="metric"><div class="metric-label">${m.l}</div><div class="metric-value">${m.v}</div></div>`).join('');
+
+  const casesEl = document.getElementById('r-cases');
+  if (d.bullCase || d.bearCase) {
+    casesEl.innerHTML = `
+      <div class="case-box bull">
+        <div class="case-title">▲ Bull Case</div>
+        <div class="case-text">${d.bullCase || '—'}</div>
+      </div>
+      <div class="case-box bear">
+        <div class="case-title">▼ Bear Case</div>
+        <div class="case-text">${d.bearCase || '—'}</div>
+      </div>`;
+    casesEl.style.display = 'grid';
+  } else {
+    casesEl.style.display = 'none';
+  }
+
+  const bottomEl = document.getElementById('r-bottom');
+  bottomEl.innerHTML = [
+    {l:'Confidence', v: d.confidence || '—'},
+    {l:'12M Target',  v: d.target12m  || '—'},
+    {l:'Entry',       v: d.entry      || '—'},
+  ].map(m => `<div class="bottom-metric"><div class="metric-label">${m.l}</div><div class="metric-value">${m.v}</div></div>`).join('');
 
   const analysisEl = document.getElementById('r-analysis');
   if (d.analysis) { analysisEl.innerHTML = d.analysis.split('\n').filter(Boolean).map(p => `<p>${p}</p>`).join(''); analysisEl.style.display = 'block'; }
