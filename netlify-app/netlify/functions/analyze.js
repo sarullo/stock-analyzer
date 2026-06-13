@@ -115,7 +115,7 @@ exports.handler = async function(event) {
         'anthropic-version': '2023-06-01'
       },
       {
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1000,
         system: `You are Alpha Agent, a fundamental equity analyst. You evaluate stocks for a 6-12 month investment horizon based on business quality, competitive position, growth trajectory, and valuation — not daily price moves. Your signals should be stable: a BUY today should still be BUY tomorrow unless the fundamental thesis changes. Today's price data gives context for entry timing only. You cover all sectors equally.
 
